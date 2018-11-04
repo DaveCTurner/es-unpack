@@ -13,10 +13,15 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- optparse-applicative
+- directory
+- filepath
+- process
 
 executables:
   es-unpack:
     main:                Main.hs
+    source-dirs: src
     ghc-options:
     - -threaded
     - -rtsopts
