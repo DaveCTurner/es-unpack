@@ -89,6 +89,7 @@ main = do
     appendFile (configDir </> "elasticsearch.yml") $ unlines
       [ "node.name: node-"                     ++ show (nodeIndex n)
       , "path.data: data-"                     ++ show (nodeIndex n)
+      , "network.host: 127.0.0.1"
       , "http.port: "                          ++ show (nodeHttpPort n)
       , "transport.tcp.port: "                 ++ show (nodeTransportPort n)
       , "discovery.zen.ping.unicast.hosts: "   ++ show (nodeUnicastHosts n)
