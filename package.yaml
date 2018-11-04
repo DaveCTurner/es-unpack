@@ -1,0 +1,23 @@
+name:                es-unpack
+version:             0.1.0.0
+github:              "davecturner/es-unpack"
+license:             BSD3
+author:              "David Turner"
+maintainer:          "dave.c.turner@gmail.com"
+copyright:           "2018 David Turner"
+
+extra-source-files:
+- README.md
+
+description:         Please see the README on GitHub at <https://github.com/githubuser/es-unpack#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+executables:
+  es-unpack:
+    main:                Main.hs
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
