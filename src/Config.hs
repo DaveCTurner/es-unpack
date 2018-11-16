@@ -3,7 +3,7 @@ module Config (Config(..), getConfig) where
 import Options.Applicative
 
 data Config = Config
-  { cVersion              :: String
+  { cVersionOrTarball     :: Either String FilePath
   , cMixedNodes           :: Int
   , cDedicatedMasterNodes :: Int
   , cDataOnlyNodes        :: Int
@@ -15,12 +15,21 @@ getConfig = execParser $ info (config <**> helper)
   <> progDesc "unpack and configure a bunch of Elasticsearch nodes"
   <> header "es-unpack - unpack and configure a bunch of Elasticsearch nodes")
 
+versionOrTarball :: Parser (Either String FilePath)
+versionOrTarball = Left <$> version <|> Right <$> tarball
+  where
+    version = strOption
+      ( long "version"
+      <> metavar "VERSION"
+      <> help "Elasticsearch version to use")
+    tarball = strOption
+      ( long "tarball"
+      <> metavar "PATH"
+      <> help "Elasticsearch tarball to use")
+
 config :: Parser Config
 config = Config
-  <$> strOption
-    ( long "version"
-    <> metavar "VERSION"
-    <> help "Elasticsearch version to use")
+  <$> versionOrTarball
   <*> option auto
     ( long "nodes"
     <> metavar "NODES"

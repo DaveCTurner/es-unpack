@@ -47,19 +47,35 @@ nodes config = result
   masterNode i = (rawNode i) { nodeIsMaster   = True }
   mixedNode  i = (rawNode i) { nodeIsDataNode = True, nodeIsMaster = True }
 
+dropTgzExtension :: FilePath -> FilePath
+dropTgzExtension fp
+    | ext `elem` [".tar", ".gz"] = dropTgzExtension dropped
+    | otherwise                  = fp
+  where
+  (dropped, ext) = splitExtension fp
+
 unpackAfresh :: Config -> IO FilePath
 unpackAfresh config = do
-  tarballDir <- getEnv "ES_TARBALL_DIR"
-  let tarballPath = tarballDir </> ("elasticsearch-" ++ cVersion config ++ ".tar.gz")
+
+  tarballPath <- case cVersionOrTarball config of
+    Left version -> do
+      tarballDir <- getEnv "ES_TARBALL_DIR"
+      return $ tarballDir </> ("elasticsearch-" ++ version ++ ".tar.gz")
+    Right tbp -> return tbp
+
   tarballExists <- doesFileExist tarballPath
   unless tarballExists $ do
-    putStrLn $ "Tarball " ++ tarballPath ++ " not found. Download with:"
-    putStrLn $ "curl https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-" 
-      ++ cVersion config ++ ".tar.gz -o '" ++ tarballPath ++ ".partial' && mv -v '"
-      ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
+    case cVersionOrTarball config of
+      Left version -> do
+        putStrLn $ "Tarball " ++ tarballPath ++ " not found. Download with:"
+        putStrLn $ "curl https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-" 
+          ++ version ++ ".tar.gz -o '" ++ tarballPath ++ ".partial' && mv -v '"
+          ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
+      Right tarballPath -> do
+        putStrLn $ "Tarball " ++ tarballPath ++ " not found."
     exitWith $ ExitFailure 1
 
-  let unpackPath = "elasticsearch-" ++ cVersion config
+  let unpackPath = dropTgzExtension $ takeFileName tarballPath
   unpackPathExists <- doesDirectoryExist unpackPath
   when unpackPathExists $ do
     putStrLn $ "Directory '" ++ unpackPath ++ "' already exists"
