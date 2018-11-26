@@ -7,6 +7,7 @@ import System.Exit
 import System.Directory
 import System.FilePath
 import System.Process
+import Data.List
 
 data Node = Node
   { nodeIndex         :: Int
@@ -54,26 +55,46 @@ dropTgzExtension fp
   where
   (dropped, ext) = splitExtension fp
 
-unpackAfresh :: Config -> IO FilePath
-unpackAfresh config = do
-
-  tarballPath <- case cVersionOrTarball config of
-    Left version -> do
-      tarballDir <- getEnv "ES_TARBALL_DIR"
-      return $ tarballDir </> ("elasticsearch-" ++ version ++ ".tar.gz")
-    Right tbp -> return tbp
+resolveTarball :: Target -> IO FilePath
+resolveTarball (TargetVersion version) = do
+  tarballDir <- getEnv "ES_TARBALL_DIR"
+  let tarballPath = tarballDir </> ("elasticsearch-" ++ version ++ ".tar.gz")
 
   tarballExists <- doesFileExist tarballPath
   unless tarballExists $ do
-    case cVersionOrTarball config of
-      Left version -> do
-        putStrLn $ "Tarball " ++ tarballPath ++ " not found. Download with:"
-        putStrLn $ "curl https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-" 
-          ++ version ++ ".tar.gz -o '" ++ tarballPath ++ ".partial' && mv -v '"
-          ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
-      Right tarballPath -> do
-        putStrLn $ "Tarball " ++ tarballPath ++ " not found."
+    putStrLn $ "Tarball " ++ tarballPath ++ " not found. Download with:"
+    putStrLn $ "curl https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-" 
+      ++ version ++ ".tar.gz -o '" ++ tarballPath ++ ".partial' && mv -v '"
+      ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
     exitWith $ ExitFailure 1
+
+  return tarballPath
+
+resolveTarball (TargetTarball tarballPath) = do
+  tarballExists <- doesFileExist tarballPath
+  unless tarballExists $ do
+    putStrLn $ "Tarball " ++ tarballPath ++ " not found."
+    exitWith $ ExitFailure 1
+
+  return tarballPath
+
+resolveTarball NoTarget = do
+  allEntries <- listDirectory =<< getEnv "ES_TARBALL_DIR"
+  putStrLn "available versions:"
+  mapM_ putStrLn $ sort
+        [ reverse $ drop (length suffix) $ reverse $ drop (length prefix) entry
+        | entry <- allEntries
+        , prefix `isPrefixOf` entry
+        , suffix `isSuffixOf` entry
+        ]
+  exitWith ExitSuccess
+  where
+    prefix = "elasticsearch-"
+    suffix = ".tar.gz"
+
+unpackAfresh :: Config -> IO FilePath
+unpackAfresh config = do
+  tarballPath <- resolveTarball $ cTarget config
 
   let unpackPath = dropTgzExtension $ takeFileName tarballPath
   unpackPathExists <- doesDirectoryExist unpackPath

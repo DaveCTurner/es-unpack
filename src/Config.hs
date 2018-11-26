@@ -1,9 +1,15 @@
-module Config (Config(..), getConfig) where
+module Config (Config(..), Target(..), getConfig) where
 
 import Options.Applicative
 
+data Target
+  = TargetVersion String
+  | TargetTarball FilePath
+  | NoTarget
+  deriving (Show, Eq)
+
 data Config = Config
-  { cVersionOrTarball     :: Either String FilePath
+  { cTarget               :: Target
   , cMixedNodes           :: Int
   , cDedicatedMasterNodes :: Int
   , cDataOnlyNodes        :: Int
@@ -15,8 +21,8 @@ getConfig = execParser $ info (config <**> helper)
   <> progDesc "unpack and configure a bunch of Elasticsearch nodes"
   <> header "es-unpack - unpack and configure a bunch of Elasticsearch nodes")
 
-versionOrTarball :: Parser (Either String FilePath)
-versionOrTarball = Left <$> version <|> Right <$> tarball
+versionOrTarball :: Parser Target
+versionOrTarball = TargetVersion <$> version <|> TargetTarball <$> tarball <|> pure NoTarget
   where
     version = strOption
       ( long "version"
