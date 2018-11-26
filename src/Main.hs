@@ -79,8 +79,9 @@ resolveTarball (TargetTarball tarballPath) = do
   return tarballPath
 
 resolveTarball NoTarget = do
-  allEntries <- listDirectory =<< getEnv "ES_TARBALL_DIR"
-  putStrLn "available versions:"
+  tarballDir <- getEnv "ES_TARBALL_DIR"
+  allEntries <- listDirectory tarballDir
+  putStrLn $ "Available versions in $ES_TARBALL_DIR=" ++ tarballDir
   mapM_ putStrLn $ sort
         [ reverse $ drop (length suffix) $ reverse $ drop (length prefix) entry
         | entry <- allEntries
