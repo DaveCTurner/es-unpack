@@ -135,4 +135,11 @@ main = do
       , "node.master: " ++ (if nodeIsMaster   n then "true" else "false")
       , "node.data: "   ++ (if nodeIsDataNode n then "true" else "false")
       ]
-    putStrLn $ "ES_PATH_CONF=" ++ configDir ++ " " ++ (unpackPath </> "bin" </> "elasticsearch")
+    let runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
+        majorVersion = case cTarget config of
+          TargetVersion v -> read (takeWhile (/= '.') v)
+          _               -> 7
+
+    putStrLn $ if majorVersion < 6
+      then runElasticsearch ++ " -Epath.conf=" ++ configDir
+      else "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
