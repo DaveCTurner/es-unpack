@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiWayIf #-}
+
 module Main where
 
 import Config
@@ -140,6 +142,13 @@ main = do
           TargetVersion v -> read (takeWhile (/= '.') v)
           _               -> 7
 
-    putStrLn $ if majorVersion < 6
-      then runElasticsearch ++ " -Epath.conf=" ++ configDir
-      else "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
+    putStrLn $ if
+      | majorVersion <  6 -> runElasticsearch ++ " -Epath.conf=" ++ configDir
+      | majorVersion == 6 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
+      | nodeIndex n  /= 0 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
+      | otherwise         -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch ++ " -Ecluster.initial_master_nodes="
+           ++ intercalate ","
+                  [ "node-" ++ show (nodeIndex n')
+                  | n' <- nodes config
+                  , nodeIsMaster n'
+                  ]
