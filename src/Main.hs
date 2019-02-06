@@ -65,9 +65,13 @@ resolveTarball (TargetVersion version) = do
   tarballExists <- doesFileExist tarballPath
   unless tarballExists $ do
     putStrLn $ "Tarball " ++ tarballPath ++ " not found. Download with:"
-    putStrLn $ "curl https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-" 
-      ++ version ++ ".tar.gz -o '" ++ tarballPath ++ ".partial' && mv -v '"
-      ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
+
+    let urlPrefix
+          | "-SNAPSHOT" `isSuffixOf` version = "https://snapshots.elastic.co/downloads/elasticsearch/elasticsearch-"
+          | otherwise                        = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-"
+
+    putStrLn $ "curl -f " ++ urlPrefix ++ version ++ ".tar.gz -o '" ++ tarballPath
+      ++ ".partial' && mv -v '" ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
     exitWith $ ExitFailure 1
 
   return tarballPath
