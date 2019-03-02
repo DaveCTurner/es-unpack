@@ -129,25 +129,33 @@ main = do
   forM_ (nodes config) $ \n -> do
     let configDir = unpackPath </> ("config-" ++ show (nodeIndex n))
         dataDir   = unpackPath </> ("data-"   ++ show (nodeIndex n))
+        runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
+        majorVersion = case cTarget config of
+          TargetVersion v -> read (takeWhile (/= '.') v)
+          _               -> 8
     callProcess "cp" ["-R", defaultConfigDir, configDir]
-    appendFile (configDir </> "elasticsearch.yml") $ unlines
+    appendFile (configDir </> "elasticsearch.yml") $ unlines $
       [ "node.name: node-"                     ++ show (nodeIndex n)
-      , "path.data: data-"                     ++ show (nodeIndex n)
+      , "path.data: "++ if
+        | majorVersion < 6 -> unpackPath </> "data-" ++ show (nodeIndex n)
+        | otherwise        ->                "data-" ++ show (nodeIndex n)
       , "network.host: 127.0.0.1"
       , "http.port: "                          ++ show (nodeHttpPort n)
       , "transport.tcp.port: "                 ++ show (nodeTransportPort n)
-      , "discovery.zen.ping.unicast.hosts: "   ++ show (nodeUnicastHosts n)
-      , "discovery.zen.minimum_master_nodes: " ++ show (nodeMinimumMasterNodes n)
       , "node.master: " ++ (if nodeIsMaster   n then "true" else "false")
       , "node.data: "   ++ (if nodeIsDataNode n then "true" else "false")
-      ]
-    let runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
-        majorVersion = case cTarget config of
-          TargetVersion v -> read (takeWhile (/= '.') v)
-          _               -> 7
+      ] ++ if
+        | majorVersion <= 6 ->
+          [ "discovery.zen.minimum_master_nodes: " ++ show (nodeMinimumMasterNodes n)
+          , "discovery.zen.ping.unicast.hosts: "   ++ show (nodeUnicastHosts n)
+          ]
+        | otherwise ->
+          [ "discovery.seed_hosts: "               ++ show (nodeUnicastHosts n)
+          ]
 
     putStrLn $ if
-      | majorVersion <  6 -> runElasticsearch ++ " -Epath.conf=" ++ configDir
+      | majorVersion <  6 -> "ES_JVM_OPTIONS=" ++ configDir ++ "/jvm.options "
+                                ++ runElasticsearch ++ " -Epath.conf=" ++ configDir
       | majorVersion == 6 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
       | nodeIndex n  /= 0 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
       | otherwise         -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch ++ " -Ecluster.initial_master_nodes="
