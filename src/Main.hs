@@ -126,7 +126,7 @@ main = do
   let defaultConfigDir = unpackPath </> "config-default"
   renameDirectory (unpackPath </> "config") defaultConfigDir
 
-  forM_ (nodes config) $ \n -> do
+  startCommands <- forM (nodes config) $ \n -> do
     let configDir = unpackPath </> ("config-" ++ show (nodeIndex n))
         dataDir   = unpackPath </> ("data-"   ++ show (nodeIndex n))
         runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
@@ -153,7 +153,10 @@ main = do
           [ "discovery.seed_hosts: "               ++ show (nodeUnicastHosts n)
           ]
 
-    putStrLn $ if
+    let nstr = show (nodeIndex n)
+        startScreenWith cmd = "screen -t node-" ++ nstr ++ " " ++ nstr ++ " bash -c \"" ++ cmd ++ "\""
+
+    return $ startScreenWith $ if
       | majorVersion <  6 -> "ES_JVM_OPTIONS=" ++ configDir ++ "/jvm.options "
                                 ++ runElasticsearch ++ " -Epath.conf=" ++ configDir
       | majorVersion == 6 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
@@ -164,3 +167,10 @@ main = do
                   | n' <- nodes config
                   , nodeIsMaster n'
                   ]
+
+  let screenRcPath = unpackPath </> "es-unpack.screenrc"
+  writeFile screenRcPath $ unlines $
+      [ "sessionname " ++ unpackPath ]
+      ++ startCommands
+
+  putStrLn $ "screen -c " ++ screenRcPath
