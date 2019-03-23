@@ -21,8 +21,8 @@ data Node = Node
   , nodeMinimumMasterNodes :: Int
   } deriving (Show, Eq)
 
-nodes :: Config -> [Node]
-nodes config = result
+nodesFromConfig :: Config -> [Node]
+nodesFromConfig config = result
 
   where
   result = zipWith ($) constructors [0..]
@@ -126,7 +126,9 @@ main = do
   let defaultConfigDir = unpackPath </> "config-default"
   renameDirectory (unpackPath </> "config") defaultConfigDir
 
-  startCommands <- forM (nodes config) $ \n -> do
+  let nodes = nodesFromConfig config
+
+  startCommands <- forM nodes $ \n -> do
     let configDir = unpackPath </> ("config-" ++ show (nodeIndex n))
         dataDir   = unpackPath </> ("data-"   ++ show (nodeIndex n))
         runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
@@ -164,7 +166,7 @@ main = do
       | otherwise         -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch ++ " -Ecluster.initial_master_nodes="
            ++ intercalate ","
                   [ "node-" ++ show (nodeIndex n')
-                  | n' <- nodes config
+                  | n' <- nodes
                   , nodeIsMaster n'
                   ]
 
@@ -172,5 +174,7 @@ main = do
   writeFile screenRcPath $ unlines $
       [ "sessionname " ++ unpackPath ]
       ++ startCommands
+      ++ replicate (length nodes - 1) "split"
+      ++ concat [ ["select " ++ show (nodeIndex n), "focus down"] | n <- nodes ]
 
   putStrLn $ "screen -c " ++ screenRcPath
