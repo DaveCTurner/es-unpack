@@ -167,6 +167,7 @@ main = do
          , "xpack.security.http.ssl.truststore.path: certs/elastic-certificates.p12"
          ]
          else []
+      ++ cExtraSettings config
 
     let nstr = show (nodeIndex n)
         startScreenWith cmd = "screen -t node-" ++ nstr ++ " " ++ nstr ++ " bash -c \"" ++ cmd ++ "\""

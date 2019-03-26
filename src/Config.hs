@@ -15,6 +15,7 @@ data Config = Config
   , cDataOnlyNodes        :: Int
   , cPortOffset           :: Int
   , cSecured              :: Bool
+  , cExtraSettings        :: [String]
   } deriving (Show, Eq)
 
 getConfig :: IO Config
@@ -65,3 +66,7 @@ config = Config
   <*> switch
     (  long "secured"
     <> help "Whether to configure TLS on this cluster")
+  <*> many (strOption
+      ( long "extra-setting"
+      <> metavar "SETTING"
+      <> help "Additional setting to add to each node"))
