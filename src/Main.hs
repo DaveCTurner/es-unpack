@@ -38,8 +38,8 @@ nodesFromConfig config = result
 
   rawNode i = Node
     { nodeIndex              =        i
-    , nodeHttpPort           = 9200 + i
-    , nodeTransportPort      = 9300 + i
+    , nodeHttpPort           = 9200 + i + cPortOffset config
+    , nodeTransportPort      = 9300 + i + cPortOffset config
     , nodeIsMaster           = False
     , nodeIsDataNode         = False
     , nodeUnicastHosts       = unicastHosts
@@ -127,14 +127,15 @@ main = do
   renameDirectory (unpackPath </> "config") defaultConfigDir
 
   let nodes = nodesFromConfig config
+      majorVersion = case cTarget config of
+        TargetVersion v -> read (takeWhile (/= '.') v)
+        _               -> 8
+      isSecured = cSecured config && 6 <= majorVersion
 
   startCommands <- forM nodes $ \n -> do
     let configDir = unpackPath </> ("config-" ++ show (nodeIndex n))
         dataDir   = unpackPath </> ("data-"   ++ show (nodeIndex n))
         runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
-        majorVersion = case cTarget config of
-          TargetVersion v -> read (takeWhile (/= '.') v)
-          _               -> 8
     callProcess "cp" ["-R", defaultConfigDir, configDir]
     appendFile (configDir </> "elasticsearch.yml") $ unlines $
       [ "node.name: node-"                     ++ show (nodeIndex n)
@@ -154,6 +155,18 @@ main = do
         | otherwise ->
           [ "discovery.seed_hosts: "               ++ show (nodeUnicastHosts n)
           ]
+      ++ if isSecured
+         then
+         [ "xpack.security.enabled: true"
+         , "xpack.security.transport.ssl.enabled: true"
+         , "xpack.security.transport.ssl.verification_mode: full"
+         , "xpack.security.transport.ssl.keystore.path: certs/elastic-certificates.p12"
+         , "xpack.security.transport.ssl.truststore.path: certs/elastic-certificates.p12"
+         , "xpack.security.http.ssl.enabled: true"
+         , "xpack.security.http.ssl.keystore.path: certs/elastic-certificates.p12"
+         , "xpack.security.http.ssl.truststore.path: certs/elastic-certificates.p12"
+         ]
+         else []
 
     let nstr = show (nodeIndex n)
         startScreenWith cmd = "screen -t node-" ++ nstr ++ " " ++ nstr ++ " bash -c \"" ++ cmd ++ "\""
@@ -170,11 +183,25 @@ main = do
                   , nodeIsMaster n'
                   ]
 
+  when isSecured $ withCurrentDirectory unpackPath $ do
+    setEnv "ES_PATH_CONF" "config-0"
+    callProcess "bin/elasticsearch-certutil" ["ca", "--out", "elastic-stack-ca.p12", "--pass", "", "--silent"]
+    forM_ nodes $ \n -> do
+      let configDir = "config-" ++ show (nodeIndex n)
+      setEnv "ES_PATH_CONF" configDir
+      createDirectory $ configDir </> "certs"
+      callProcess "bin/elasticsearch-certutil" [ "cert"
+                                               , "--ca", "elastic-stack-ca.p12", "--ca-pass", ""
+                                               , "--ip", "127.0.0.1"
+                                               , "--out", configDir </> "certs" </> "elastic-certificates.p12"
+                                               , "--pass", ""
+                                               , "--silent"]
+
   let screenRcPath = unpackPath </> "es-unpack.screenrc"
   writeFile screenRcPath $ unlines $
       [ "sessionname " ++ unpackPath ]
       ++ startCommands
       ++ replicate (length nodes - 1) "split"
-      ++ concat [ ["select " ++ show (nodeIndex n), "focus down"] | n <- nodes ]
+      ++ concat [ ["select " ++ show (nodeIndex n), "focus down"] | 1 < length nodes, n <- nodes ]
 
   putStrLn $ "screen -c " ++ screenRcPath

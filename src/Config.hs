@@ -13,6 +13,8 @@ data Config = Config
   , cMixedNodes           :: Int
   , cDedicatedMasterNodes :: Int
   , cDataOnlyNodes        :: Int
+  , cPortOffset           :: Int
+  , cSecured              :: Bool
   } deriving (Show, Eq)
 
 getConfig :: IO Config
@@ -54,3 +56,12 @@ config = Config
     <> help "Number of data-only nodes to configure"
     <> value 0
     <> showDefault)
+  <*> option auto
+    ( long "port-offset"
+    <> metavar "OFFSET"
+    <> help "Offset to apply to the transport/HTTP ports for each node"
+    <> value 0
+    <> showDefault)
+  <*> switch
+    (  long "secured"
+    <> help "Whether to configure TLS on this cluster")
