@@ -155,18 +155,18 @@ main = do
         | otherwise ->
           [ "discovery.seed_hosts: "               ++ show (nodeUnicastHosts n)
           ]
-      ++ if isSecured
-         then
-         [ "xpack.security.enabled: true"
-         , "xpack.security.transport.ssl.enabled: true"
-         , "xpack.security.transport.ssl.verification_mode: full"
-         , "xpack.security.transport.ssl.keystore.path: certs/elastic-certificates.p12"
-         , "xpack.security.transport.ssl.truststore.path: certs/elastic-certificates.p12"
-         , "xpack.security.http.ssl.enabled: true"
-         , "xpack.security.http.ssl.keystore.path: certs/elastic-certificates.p12"
-         , "xpack.security.http.ssl.truststore.path: certs/elastic-certificates.p12"
-         ]
-         else []
+      ++ (if isSecured
+          then
+          [ "xpack.security.enabled: true"
+          , "xpack.security.transport.ssl.enabled: true"
+          , "xpack.security.transport.ssl.verification_mode: full"
+          , "xpack.security.transport.ssl.keystore.path: certs/elastic-certificates.p12"
+          , "xpack.security.transport.ssl.truststore.path: certs/elastic-certificates.p12"
+          , "xpack.security.http.ssl.enabled: true"
+          , "xpack.security.http.ssl.keystore.path: certs/elastic-certificates.p12"
+          , "xpack.security.http.ssl.truststore.path: certs/elastic-certificates.p12"
+          ]
+          else [])
       ++ cExtraSettings config
 
     let nstr = show (nodeIndex n)
