@@ -139,12 +139,14 @@ main = do
     callProcess "cp" ["-R", defaultConfigDir, configDir]
     appendFile (configDir </> "elasticsearch.yml") $ unlines $
       [ "node.name: node-"                     ++ show (nodeIndex n)
-      , "path.data: "++ if
+      , "path.data: " ++ if
         | majorVersion < 6 -> unpackPath </> "data-" ++ show (nodeIndex n)
         | otherwise        ->                "data-" ++ show (nodeIndex n)
       , "network.host: 127.0.0.1"
-      , "http.port: "                          ++ show (nodeHttpPort n)
-      , "transport.tcp.port: "                 ++ show (nodeTransportPort n)
+      , "http.port: "                                ++ show (nodeHttpPort n)
+      , (if | majorVersion < 7 -> "transport.tcp.port: "
+            | otherwise        -> "transport.port: "
+        ) ++ show (nodeTransportPort n)
       , "node.master: " ++ (if nodeIsMaster   n then "true" else "false")
       , "node.data: "   ++ (if nodeIsDataNode n then "true" else "false")
       ] ++ if
