@@ -58,7 +58,7 @@ dropTgzExtension fp
   (dropped, ext) = splitExtension fp
 
 resolveTarball :: Target -> IO FilePath
-resolveTarball (TargetVersion version) = do
+resolveTarball target@(TargetVersion version) = do
   tarballDir <- getEnv "ES_TARBALL_DIR"
   let tarballPath = tarballDir </> ("elasticsearch-" ++ version ++ ".tar.gz")
 
@@ -70,7 +70,12 @@ resolveTarball (TargetVersion version) = do
           | "-SNAPSHOT" `isSuffixOf` version = "https://snapshots.elastic.co/downloads/elasticsearch/elasticsearch-"
           | otherwise                        = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-"
 
-    putStrLn $ "curl -f " ++ urlPrefix ++ version ++ ".tar.gz -o '" ++ tarballPath
+    maybePlatform <- lookupEnv "ES_TARBALL_PLATFORM"
+    let suffix = case maybePlatform of
+          Just platform | 7 <= majorVersionFromTarget target -> "-" ++ platform
+          _                                                  -> ""
+
+    putStrLn $ "curl -f " ++ urlPrefix ++ version ++ suffix ++ ".tar.gz -o '" ++ tarballPath
       ++ ".partial' && mv -v '" ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
     exitWith $ ExitFailure 1
 
@@ -118,6 +123,10 @@ unpackAfresh config = do
 
   return unpackPath
 
+majorVersionFromTarget :: Target -> Int
+majorVersionFromTarget (TargetVersion v) = read (takeWhile (/= '.') v)
+majorVersionFromTarget _                 = 8
+
 main :: IO ()
 main = do
   config <- getConfig
@@ -127,9 +136,7 @@ main = do
   renameDirectory (unpackPath </> "config") defaultConfigDir
 
   let nodes = nodesFromConfig config
-      majorVersion = case cTarget config of
-        TargetVersion v -> read (takeWhile (/= '.') v)
-        _               -> 8
+      majorVersion = majorVersionFromTarget $ cTarget config
       isSecured = cSecured config && 6 <= majorVersion
 
   startCommands <- forM nodes $ \n -> do
