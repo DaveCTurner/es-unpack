@@ -108,7 +108,8 @@ unpackAfresh :: Config -> IO FilePath
 unpackAfresh config = do
   tarballPath <- resolveTarball $ cTarget config
 
-  let unpackPath = dropTgzExtension $ takeFileName tarballPath
+  unpackRoot <- getCurrentDirectory
+  let unpackPath = unpackRoot </> dropTgzExtension (takeFileName tarballPath)
   unpackPathExists <- doesDirectoryExist unpackPath
   when unpackPathExists $ do
     putStrLn $ "Directory '" ++ unpackPath ++ "' already exists"
@@ -147,7 +148,7 @@ main = do
     appendFile (configDir </> "elasticsearch.yml") $ unlines $
       [ "node.name: node-"                     ++ show (nodeIndex n)
       , "path.data: " ++ if
-        | majorVersion < 6 -> unpackPath </> "data-" ++ show (nodeIndex n)
+        | majorVersion < 8 -> unpackPath </> "data-" ++ show (nodeIndex n)
         | otherwise        ->                "data-" ++ show (nodeIndex n)
       , "network.host: 127.0.0.1"
       , "http.port: "                                ++ show (nodeHttpPort n)
