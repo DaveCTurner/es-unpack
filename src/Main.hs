@@ -210,7 +210,7 @@ main = do
 
   let screenRcPath = unpackPath </> "es-unpack.screenrc"
   writeFile screenRcPath $ unlines $
-      [ "sessionname " ++ unpackPath ]
+      [ "sessionname " ++ takeFileName unpackPath ]
       ++ startCommands
       ++ replicate (length nodes - 1) "split"
       ++ concat [ ["select " ++ show (nodeIndex n), "focus down"] | 1 < length nodes, n <- nodes ]
