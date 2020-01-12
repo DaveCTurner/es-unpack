@@ -204,9 +204,11 @@ main = do
       callProcess "bin/elasticsearch-certutil" [ "cert"
                                                , "--ca", "elastic-stack-ca.p12", "--ca-pass", ""
                                                , "--ip", "127.0.0.1"
+                                               , "--dns", "localhost"
                                                , "--out", configDir </> "certs" </> "elastic-certificates.p12"
                                                , "--pass", ""
                                                , "--silent"]
+      callProcess "openssl" ["pkcs12", "-in", "elastic-stack-ca.p12", "-passin", "pass:", "-nokeys", "-out", "elastic-stack-ca.pem"]
 
   let screenRcPath = unpackPath </> "es-unpack.screenrc"
   writeFile screenRcPath $ unlines $
