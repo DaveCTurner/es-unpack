@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -10,6 +11,9 @@ import System.Directory
 import System.FilePath
 import System.Process
 import Data.List
+import Data.Aeson
+import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.Encoding as T
 
 data Node = Node
   { nodeIndex         :: Int
@@ -128,6 +132,12 @@ majorVersionFromTarget :: Target -> Int
 majorVersionFromTarget (TargetVersion v) = read (takeWhile (/= '.') v)
 majorVersionFromTarget _                 = 8
 
+data SetupCommand = SetupCommand String Value
+
+linesFromCommand :: SetupCommand -> [String]
+linesFromCommand (SetupCommand uri Null) = [uri, ""]
+linesFromCommand (SetupCommand uri v) = [uri, T.unpack $ T.decodeUtf8 $ encode $ v, ""]
+
 main :: IO ()
 main = do
   config <- getConfig
@@ -139,6 +149,10 @@ main = do
   let nodes = nodesFromConfig config
       majorVersion = majorVersionFromTarget $ cTarget config
       isSecured = cSecured config && 6 <= majorVersion
+
+  repoPath <- if cWithRepo config
+      then let p = unpackPath </> "repo" in createDirectory p >> return (Just p)
+      else return Nothing
 
   startCommands <- forM nodes $ \n -> do
     let configDir = unpackPath </> ("config-" ++ show (nodeIndex n))
@@ -165,6 +179,7 @@ main = do
         | otherwise ->
           [ "discovery.seed_hosts: "               ++ show (nodeUnicastHosts n)
           ]
+      ++ [ "path.repo: " ++ p | Just p <- [repoPath] ]
       ++ (if isSecured
           then
           [ "xpack.security.enabled: true"
@@ -218,3 +233,14 @@ main = do
       ++ concat [ ["select " ++ show (nodeIndex n), "focus down"] | 1 < length nodes, n <- nodes ]
 
   putStrLn $ "screen -c " ++ screenRcPath
+
+  let setupPath = unpackPath </> "setup-commands.txt"
+  writeFile setupPath $ unlines $ concatMap linesFromCommand
+      $  [ SetupCommand "GET /_cluster/health?wait_for_status=green&timeout=1h" Null ]
+      ++ [ SetupCommand "PUT /_snapshot/default-repo" $ object
+              [ "type" .= String "fs"
+              , "settings" .= object
+                [ "location" .= p
+                ]
+              ] | Just p <- [repoPath] ]
+  putStrLn $ "escli --server http://localhost:" ++ (show $ nodeHttpPort $ head nodes) ++ " < " ++ setupPath

@@ -15,6 +15,7 @@ data Config = Config
   , cDataOnlyNodes        :: Int
   , cPortOffset           :: Int
   , cSecured              :: Bool
+  , cWithRepo             :: Bool
   , cExtraSettings        :: [String]
   } deriving (Show, Eq)
 
@@ -66,6 +67,9 @@ config = Config
   <*> switch
     (  long "secured"
     <> help "Whether to configure TLS on this cluster")
+  <*> (not <$> switch
+    (  long "no-repo"
+    <> help "If set, do not set up a local snapshot repository on this cluster"))
   <*> many (strOption
       ( long "extra-setting"
       <> metavar "SETTING"

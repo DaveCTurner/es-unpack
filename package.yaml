@@ -17,6 +17,8 @@ dependencies:
 - directory
 - filepath
 - process
+- aeson
+- text
 
 executables:
   es-unpack:
