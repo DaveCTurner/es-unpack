@@ -5,13 +5,13 @@ module Main where
 
 import Config
 import Control.Monad
+import Data.Aeson
+import Data.List
+import System.Directory
 import System.Environment
 import System.Exit
-import System.Directory
 import System.FilePath
 import System.Process
-import Data.List
-import Data.Aeson
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.Encoding as T
 
@@ -234,6 +234,9 @@ main = do
 
   putStrLn $ "screen -c " ++ screenRcPath
 
+  when isSecured $ do
+      putStrLn $ "ES_PATH_CONF=" ++ (unpackPath </> "config-0") ++ " " ++ (unpackPath </> "bin" </> "elasticsearch-setup-passwords") ++ " auto -b"
+
   let setupPath = unpackPath </> "setup-commands.txt"
   writeFile setupPath $ unlines $ concatMap linesFromCommand
       $  [ SetupCommand "GET /_cluster/health?wait_for_status=green&timeout=1h" Null ]
@@ -243,4 +246,9 @@ main = do
                 [ "location" .= p
                 ]
               ] | Just p <- [repoPath] ]
-  putStrLn $ "escli --server http://localhost:" ++ (show $ nodeHttpPort $ head nodes) ++ " < " ++ setupPath
+  if isSecured
+    then putStrLn $ "escli --server https://localhost:" ++ (show $ nodeHttpPort $ head nodes)
+            ++ " --certificate-store " ++ (unpackPath </> "elastic-stack-ca.pem")
+            ++ " --username elastic --password $ES_UNPACK_PASS"
+            ++ " < " ++ setupPath
+    else putStrLn $ "escli --server http://localhost:"  ++ (show $ nodeHttpPort $ head nodes) ++ " < " ++ setupPath
