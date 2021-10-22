@@ -96,6 +96,37 @@ resolveTarball (TargetTarball tarballPath) = do
 
   return tarballPath
 
+resolveTarball TargetDistribution = do
+  maybePlatform <- lookupEnv "ES_TARBALL_PLATFORM"
+  (jobName, platform) <- case maybePlatform of
+    Just "darwin-x86_64" -> return ("darwin-tar", "darwin-x86_64")
+    Just "linux-x86_64"  -> return ("linux-tar", "linux-x86_64")
+    Just otherPlatform   -> do
+      putStrLn $ "unknown platform ES_TARBALL_PLATFORM=" ++ otherPlatform
+      exitWith $ ExitFailure 1
+    Nothing -> do
+      putStrLn $ "ES_TARBALL_PLATFORM unset"
+      exitWith $ ExitFailure 1
+  let tarballLocation = "distribution" </> "archives" </> jobName </> "build" </> "distributions"
+      prefix = "elasticsearch-"
+      suffix = "-SNAPSHOT-" ++ platform ++ ".tar.gz"
+  locationExists <- doesDirectoryExist tarballLocation
+  unless locationExists $ do
+    putStrLn $ tarballLocation ++ " does not exist - are you in the Elasticsearch source tree? If yes, run the following command to build tarball:"
+    putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
+    exitWith $ ExitFailure 1
+
+  dirContents <- filter (\f -> prefix `isPrefixOf` f && suffix `isSuffixOf` f) <$> getDirectoryContents tarballLocation
+  case dirContents of
+    [] -> do
+      putStrLn $ "no tarballs found matching " ++ tarballLocation ++ "/" ++ prefix ++ "*" ++ suffix ++ " - run the following command to build tarball:"
+      putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
+      exitWith $ ExitFailure 1
+    [f] -> return $ tarballLocation </> f
+    _ -> do
+      putStrLn $ "multiple tarballs found matching " ++ tarballLocation ++ "/" ++ prefix ++ "*" ++ suffix ++ ": " ++ show dirContents
+      exitWith $ ExitFailure 1
+
 resolveTarball NoTarget = do
   tarballDir <- getEnv "ES_TARBALL_DIR"
   allEntries <- listDirectory tarballDir
@@ -115,8 +146,15 @@ unpackAfresh :: Config -> IO FilePath
 unpackAfresh config = do
   tarballPath <- resolveTarball $ cTarget config
 
+  maybePlatform <- lookupEnv "ES_TARBALL_PLATFORM"
+
   unpackRoot <- getCurrentDirectory
-  let unpackPath = unpackRoot </> dropTgzExtension (takeFileName tarballPath)
+  let unpackPathWithPlatform = unpackRoot </> dropTgzExtension (takeFileName tarballPath)
+      unpackPath = case maybePlatform of
+        Just platform
+          | ("-" ++ platform) `isSuffixOf` unpackPathWithPlatform
+          -> take (length unpackPathWithPlatform - length platform - 1) unpackPathWithPlatform
+        _ -> unpackPathWithPlatform
   unpackPathExists <- doesDirectoryExist unpackPath
   when unpackPathExists $ do
     putStrLn $ "Directory '" ++ unpackPath ++ "' already exists"

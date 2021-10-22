@@ -5,6 +5,7 @@ import Options.Applicative
 data Target
   = TargetVersion String
   | TargetTarball FilePath
+  | TargetDistribution
   | NoTarget
   deriving (Show, Eq)
 
@@ -27,7 +28,7 @@ getConfig = execParser $ info (config <**> helper)
   <> header "es-unpack - unpack and configure a bunch of Elasticsearch nodes")
 
 versionOrTarball :: Parser Target
-versionOrTarball = TargetVersion <$> version <|> TargetTarball <$> tarball <|> pure NoTarget
+versionOrTarball = TargetVersion <$> version <|> TargetTarball <$> tarball <|> distribution
   where
     version = strOption
       ( long "version"
@@ -37,6 +38,9 @@ versionOrTarball = TargetVersion <$> version <|> TargetTarball <$> tarball <|> p
       ( long "tarball"
       <> metavar "PATH"
       <> help "Elasticsearch tarball to use")
+    distribution = flag NoTarget TargetDistribution
+      ( long "distribution"
+      <> help "Find tarball in source tree")
 
 config :: Parser Config
 config = Config
