@@ -16,6 +16,7 @@ data Config = Config
   , cPortOffset           :: Int
   , cSecured              :: Bool
   , cWithRepo             :: Bool
+  , cWithGeoIp            :: Bool
   , cExtraSettings        :: [String]
   } deriving (Show, Eq)
 
@@ -70,6 +71,9 @@ config = Config
   <*> (not <$> switch
     (  long "no-repo"
     <> help "If set, do not set up a local snapshot repository on this cluster"))
+  <*> switch
+    (  long "auto-download-geoip"
+    <> help "If set, enable automatic downloads of GeoIP databases")
   <*> many (strOption
       ( long "extra-setting"
       <> metavar "SETTING"

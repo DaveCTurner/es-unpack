@@ -7,11 +7,13 @@ import Config
 import Control.Monad
 import Data.Aeson
 import Data.List
+import Data.Maybe
 import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
 import System.Process
+import Text.Read (readMaybe)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.Encoding as T
 
@@ -75,9 +77,10 @@ resolveTarball target@(TargetVersion version) = do
           | otherwise                        = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-"
 
     maybePlatform <- lookupEnv "ES_TARBALL_PLATFORM"
-    let suffix = case maybePlatform of
-          Just platform | 7 <= majorVersionFromTarget target -> "-" ++ platform
-          _                                                  -> ""
+    let suffix = case (maybePlatform, getVersion target) of
+          (Just platform, Just (majorVersion, _)) | 7 <= majorVersion -> "-" ++ platform
+          (Just platform, Nothing)                                    -> "-" ++ platform
+          _                                                           -> ""
 
     putStrLn $ "curl -f " ++ urlPrefix ++ version ++ suffix ++ ".tar.gz -o '" ++ tarballPath
       ++ ".partial' && mv -v '" ++ tarballPath ++ ".partial' '" ++ tarballPath ++ "'"
@@ -128,9 +131,13 @@ unpackAfresh config = do
 
   return unpackPath
 
-majorVersionFromTarget :: Target -> Int
-majorVersionFromTarget (TargetVersion v) = read (takeWhile (/= '.') v)
-majorVersionFromTarget _                 = 8
+getVersion :: Target -> Maybe (Int, Int)
+getVersion t = do
+  TargetVersion v                           <- Just t
+  (majorVersionString, _:afterMajorVersion) <- Just $ break (== '.') v
+  majorVersion                              <- readMaybe majorVersionString
+  minorVersion                              <- readMaybe $ takeWhile (/= '.') afterMajorVersion
+  return (majorVersion, minorVersion)
 
 data SetupCommand = SetupCommand String Value
 
@@ -147,8 +154,10 @@ main = do
   renameDirectory (unpackPath </> "config") defaultConfigDir
 
   let nodes = nodesFromConfig config
-      majorVersion = majorVersionFromTarget $ cTarget config
+      version@(majorVersion,_) = fromMaybe (8, 0) $ getVersion $ cTarget config
       isSecured = cSecured config && 6 <= majorVersion
+      useNodeRoles = (7, 10) <= version
+      disableGeoIp = (7, 14) <= version && not (cWithGeoIp config)
 
   repoPath <- if cWithRepo config
       then let p = unpackPath </> "repo" in createDirectory p >> return (Just p)
@@ -169,9 +178,21 @@ main = do
       , (if | majorVersion < 7 -> "transport.tcp.port: "
             | otherwise        -> "transport.port: "
         ) ++ show (nodeTransportPort n)
-      , "node.master: " ++ (if nodeIsMaster   n then "true" else "false")
-      , "node.data: "   ++ (if nodeIsDataNode n then "true" else "false")
       ] ++ if
+        | useNodeRoles ->
+          [ "node.roles: "
+          , (if nodeIsMaster   n then "  " else "# ") ++ "- master"
+          , (if nodeIsDataNode n then "  " else "# ") ++ "- data"
+          , "  - ingest"
+          , "  - ml"
+          , "  - remote_cluster_client"
+          , "  - transform"
+          ]
+        | otherwise ->
+          [ "node.master: " ++ (if nodeIsMaster   n then "true" else "false")
+          , "node.data: "   ++ (if nodeIsDataNode n then "true" else "false")
+          ]
+      ++ if
         | majorVersion <= 6 ->
           [ "discovery.zen.minimum_master_nodes: " ++ show (nodeMinimumMasterNodes n)
           , "discovery.zen.ping.unicast.hosts: "   ++ show (nodeUnicastHosts n)
@@ -180,8 +201,9 @@ main = do
           [ "discovery.seed_hosts: "               ++ show (nodeUnicastHosts n)
           ]
       ++ [ "path.repo: " ++ p | Just p <- [repoPath] ]
-      ++ (if isSecured
-          then
+      ++ (if disableGeoIp then ["ingest.geoip.downloader.enabled: false"] else [])
+      ++ (if
+        | isSecured ->
           [ "xpack.security.enabled: true"
           , "xpack.security.transport.ssl.enabled: true"
           , "xpack.security.transport.ssl.verification_mode: full"
@@ -191,7 +213,11 @@ main = do
           , "xpack.security.http.ssl.keystore.path: certs/elastic-certificates.p12"
           , "xpack.security.http.ssl.truststore.path: certs/elastic-certificates.p12"
           ]
-          else [])
+        | version < (7,14) ->
+          []
+        | otherwise ->
+          [ "xpack.security.enabled: false"
+          ])
       ++ cExtraSettings config
 
     let nstr = show (nodeIndex n)
@@ -201,8 +227,8 @@ main = do
       | majorVersion <  6 -> "ES_JVM_OPTIONS=" ++ configDir ++ "/jvm.options "
                                 ++ runElasticsearch ++ " -Epath.conf=" ++ configDir
       | majorVersion == 6 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
-      | nodeIndex n  /= 0 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
-      | otherwise         -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch ++ " -Ecluster.initial_master_nodes="
+      | nodeIndex n  /= 0 -> "JAVA_HOME= ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
+      | otherwise         -> "JAVA_HOME= ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch ++ " -Ecluster.initial_master_nodes="
            ++ intercalate ","
                   [ "node-" ++ show (nodeIndex n')
                   | n' <- nodes
@@ -211,6 +237,7 @@ main = do
 
   when isSecured $ withCurrentDirectory unpackPath $ do
     setEnv "ES_PATH_CONF" "config-0"
+    unsetEnv "JAVA_HOME"
     callProcess "bin/elasticsearch-certutil" ["ca", "--out", "elastic-stack-ca.p12", "--pass", "", "--silent"]
     forM_ nodes $ \n -> do
       let configDir = "config-" ++ show (nodeIndex n)
