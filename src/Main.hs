@@ -206,6 +206,10 @@ main = do
         dataDir   = unpackPath </> ("data-"   ++ show (nodeIndex n))
         runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
     callProcess "cp" ["-R", defaultConfigDir, configDir]
+    writeFile (configDir </> "jvm.options.d" </> "00-es-unpack.options") $ unlines $
+      [ "-Xmx1g"
+      , "-Xms1g"
+      ]
     appendFile (configDir </> "elasticsearch.yml") $ unlines $
       [ "node.name: node-"                     ++ show (nodeIndex n)
       , "path.data: " ++ if
