@@ -122,7 +122,10 @@ resolveTarball TargetDistribution = do
       putStrLn $ "no tarballs found matching " ++ tarballLocation ++ "/" ++ prefix ++ "*" ++ suffix ++ " - run the following command to build tarball:"
       putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
       exitWith $ ExitFailure 1
-    [f] -> return $ tarballLocation </> f
+    [f] -> do
+      let tarballPath = tarballLocation </> f
+      putStrLn $ "using distribution tarball " ++ tarballPath
+      return tarballPath
     _ -> do
       putStrLn $ "multiple tarballs found matching " ++ tarballLocation ++ "/" ++ prefix ++ "*" ++ suffix ++ ": " ++ show dirContents
       exitWith $ ExitFailure 1
