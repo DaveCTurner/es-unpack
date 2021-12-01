@@ -199,6 +199,7 @@ main = do
       isSecured = cSecured config && 6 <= majorVersion
       useNodeRoles = (7, 10) <= version
       disableGeoIp = (7, 14) <= version && not (cWithGeoIp config)
+      setJvmOptions = (7, 10) <= version -- tbc not sure of version
 
   repoPath <- if cWithRepo config
       then let p = unpackPath </> "repo" in createDirectory p >> return (Just p)
@@ -209,7 +210,7 @@ main = do
         dataDir   = unpackPath </> ("data-"   ++ show (nodeIndex n))
         runElasticsearch = unpackPath </> "bin" </> "elasticsearch"
     callProcess "cp" ["-R", defaultConfigDir, configDir]
-    writeFile (configDir </> "jvm.options.d" </> "00-es-unpack.options") $ unlines $
+    when setJvmOptions $ writeFile (configDir </> "jvm.options.d" </> "00-es-unpack.options") $ unlines $
       [ "-Xmx1g"
       , "-Xms1g"
       ]
