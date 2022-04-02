@@ -16,6 +16,7 @@ import System.Process
 import Text.Read (readMaybe)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.Encoding as T
+import qualified Data.Set as S
 
 data Node = Node
   { nodeIndex         :: Int
@@ -37,10 +38,9 @@ nodesFromConfig config = result
               ++ replicate (cMixedNodes           config) mixedNode
               ++ replicate (cDataOnlyNodes        config) dataNode
 
-  unicastHosts = [ "127.0.0.1:" ++ show (nodeTransportPort n)
-                 | n <- result
-                 , nodeIsMaster n
-                 ]
+  discoveryPorts = S.toList $ S.fromList $ map nodeTransportPort (filter nodeIsMaster result) ++ cExtraDiscoveryPorts config
+
+  unicastHosts = [ "127.0.0.1:" ++ show p | p <- discoveryPorts ]
 
   rawNode i = Node
     { nodeIndex              =        i
@@ -273,7 +273,8 @@ main = do
       | majorVersion <  6 -> "ES_JVM_OPTIONS=" ++ configDir ++ "/jvm.options "
                                 ++ runElasticsearch ++ " -Epath.conf=" ++ configDir
       | majorVersion == 6 -> "ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
-      | nodeIndex n  /= 0 -> "JAVA_HOME= ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
+      | nodeIndex n  /= 0 || not (cWithBootstrap config)
+                          -> "JAVA_HOME= ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch
       | otherwise         -> "JAVA_HOME= ES_PATH_CONF=" ++ configDir ++ " " ++ runElasticsearch ++ " -Ecluster.initial_master_nodes="
            ++ intercalate ","
                   [ "node-" ++ show (nodeIndex n')

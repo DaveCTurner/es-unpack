@@ -1,6 +1,7 @@
 module Config (Config(..), Target(..), getConfig) where
 
 import Options.Applicative
+import Data.List.Split
 
 data Target
   = TargetVersion String
@@ -17,7 +18,9 @@ data Config = Config
   , cPortOffset           :: Int
   , cSecured              :: Bool
   , cWithRepo             :: Bool
+  , cWithBootstrap        :: Bool
   , cWithGeoIp            :: Bool
+  , cExtraDiscoveryPorts  :: [Int]
   , cExtraSettings        :: [String]
   } deriving (Show, Eq)
 
@@ -75,10 +78,21 @@ config = Config
   <*> (not <$> switch
     (  long "no-repo"
     <> help "If set, do not set up a local snapshot repository on this cluster"))
+  <*> (not <$> switch
+    (  long "no-bootstrap"
+    <> help "If set, do not configure cluster.initial_master_nodes on this cluster"))
   <*> switch
     (  long "auto-download-geoip"
     <> help "If set, enable automatic downloads of GeoIP databases")
+  <*> (parsePorts <$> strOption
+    ( long "extra-discovery-ports"
+    <> metavar "PORTS"
+    <> help "Extra ports to include in discovery config"
+    <> value ""))
   <*> many (strOption
       ( long "extra-setting"
       <> metavar "SETTING"
       <> help "Additional setting to add to each node"))
+
+parsePorts :: String -> [Int]
+parsePorts = map read . filter (/= "") . splitOn ","

@@ -19,6 +19,8 @@ dependencies:
 - process
 - aeson
 - text
+- containers
+- split
 
 executables:
   es-unpack:
