@@ -116,6 +116,9 @@ resolveTarball TargetDistribution = do
     putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
     exitWith $ ExitFailure 1
 
+  putStrLn $ "using " ++ tarballLocation ++ " - rebuild with the following command:"
+  putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
+
   dirContents <- filter (\f -> prefix `isPrefixOf` f && suffix `isSuffixOf` f) <$> getDirectoryContents tarballLocation
   case dirContents of
     [] -> do
