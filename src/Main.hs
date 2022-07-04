@@ -116,9 +116,6 @@ resolveTarball TargetDistribution = do
     putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
     exitWith $ ExitFailure 1
 
-  putStrLn $ "using " ++ tarballLocation ++ " - rebuild with the following command:"
-  putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
-
   dirContents <- filter (\f -> prefix `isPrefixOf` f && suffix `isSuffixOf` f) <$> getDirectoryContents tarballLocation
   case dirContents of
     [] -> do
@@ -127,7 +124,8 @@ resolveTarball TargetDistribution = do
       exitWith $ ExitFailure 1
     [f] -> do
       let tarballPath = tarballLocation </> f
-      putStrLn $ "using distribution tarball " ++ tarballPath
+      putStrLn $ "using distribution tarball " ++ tarballPath ++ " - rebuild with the following command:"
+      putStrLn $ "./gradlew :distribution:archives:" ++ jobName ++ ":assemble"
       return tarballPath
     _ -> do
       putStrLn $ "multiple tarballs found matching " ++ tarballLocation ++ "/" ++ prefix ++ "*" ++ suffix ++ ": " ++ show dirContents
@@ -217,6 +215,7 @@ main = do
       [ "-Xmx1g"
       , "-Xms1g"
       ]
+    when (majorVersion >= 7) $ appendFile (configDir </> "unicast_hosts.txt") $ unlines $ nodeUnicastHosts n
     appendFile (configDir </> "elasticsearch.yml") $ unlines $
       [ "node.name: node-"                     ++ show (nodeIndex n)
       , "path.data: " ++ if
@@ -247,7 +246,8 @@ main = do
           , "discovery.zen.ping.unicast.hosts: "   ++ show (nodeUnicastHosts n)
           ]
         | otherwise ->
-          [ "discovery.seed_hosts: "               ++ show (nodeUnicastHosts n)
+          [ "discovery.seed_hosts: []"
+          , "discovery.seed_providers: file"
           ]
       ++ [ "path.repo: " ++ p | Just p <- [repoPath] ]
       ++ (if disableGeoIp then ["ingest.geoip.downloader.enabled: false"] else [])
