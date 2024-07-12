@@ -99,6 +99,7 @@ resolveTarball (TargetTarball tarballPath) = do
 resolveTarball TargetDistribution = do
   maybePlatform <- lookupEnv "ES_TARBALL_PLATFORM"
   (jobName, platform) <- case maybePlatform of
+    Just "darwin-aarch64" -> return ("darwin-aarch64-tar", "darwin-aarch64")
     Just "darwin-x86_64" -> return ("darwin-tar", "darwin-x86_64")
     Just "linux-x86_64"  -> return ("linux-tar", "linux-x86_64")
     Just otherPlatform   -> do
