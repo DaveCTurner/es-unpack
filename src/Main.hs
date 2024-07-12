@@ -313,7 +313,7 @@ main = do
   putStrLn $ "screen -c " ++ screenRcPath
 
   when isSecured $ do
-      putStrLn $ "ES_PATH_CONF=" ++ (unpackPath </> "config-0") ++ " " ++ (unpackPath </> "bin" </> "elasticsearch-setup-passwords") ++ " auto -b"
+      putStrLn $ "JAVA_HOME= ES_PATH_CONF=" ++ (unpackPath </> "config-0") ++ " " ++ (unpackPath </> "bin" </> "elasticsearch-setup-passwords") ++ " auto -b"
 
   let setupPath = unpackPath </> "setup-commands.txt"
   writeFile setupPath $ unlines $ concatMap linesFromCommand
