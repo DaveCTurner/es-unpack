@@ -268,6 +268,13 @@ main = do
         | otherwise ->
           [ "xpack.security.enabled: false"
           ])
+      ++ (if cEnableDiskWatermarks config
+          then []
+          else [ "cluster.routing.allocation.disk.watermark.low: 1B"
+               , "cluster.routing.allocation.disk.watermark.high: 1B"
+               , "cluster.routing.allocation.disk.watermark.flood_stage: 1B"
+               ]
+         )
       ++ cExtraSettings config
 
     let nstr = show (nodeIndex n)

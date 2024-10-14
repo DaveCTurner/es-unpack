@@ -20,6 +20,7 @@ data Config = Config
   , cWithRepo             :: Bool
   , cWithBootstrap        :: Bool
   , cWithGeoIp            :: Bool
+  , cEnableDiskWatermarks :: Bool
   , cExtraDiscoveryPorts  :: [Int]
   , cExtraSettings        :: [String]
   } deriving (Show, Eq)
@@ -84,6 +85,9 @@ config = Config
   <*> switch
     (  long "auto-download-geoip"
     <> help "If set, enable automatic downloads of GeoIP databases")
+  <*> switch
+    (  long "enable-disk-watermarks"
+    <> help "If set, use the default disk watermark levels (otherwise set them all to 1B)")
   <*> (parsePorts <$> strOption
     ( long "extra-discovery-ports"
     <> metavar "PORTS"
