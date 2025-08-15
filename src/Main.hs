@@ -196,7 +196,7 @@ main = do
   let defaultConfigDir = unpackPath </> "config-default"
   renameDirectory (unpackPath </> "config") defaultConfigDir
 
-  let nodes = nodesFromConfig config
+  let nodes@(firstNode:_) = nodesFromConfig config
       version@(majorVersion,_) = fromMaybe (8, 0) $ getVersion $ cTarget config
       isSecured = cSecured config && 6 <= majorVersion
       useNodeRoles = (7, 10) <= version
@@ -332,8 +332,8 @@ main = do
                 ]
               ] | Just p <- [repoPath] ]
   if isSecured
-    then putStrLn $ "escli --server https://localhost:" ++ (show $ nodeHttpPort $ head nodes)
+    then putStrLn $ "escli --server https://localhost:" ++ (show $ nodeHttpPort firstNode)
             ++ " --certificate-store " ++ (unpackPath </> "elastic-stack-ca.pem")
             ++ " --username elastic --password $ES_UNPACK_PASS"
             ++ " < " ++ setupPath
-    else putStrLn $ "escli --server http://localhost:"  ++ (show $ nodeHttpPort $ head nodes) ++ " < " ++ setupPath
+    else putStrLn $ "escli --server http://localhost:"  ++ (show $ nodeHttpPort firstNode) ++ " < " ++ setupPath
